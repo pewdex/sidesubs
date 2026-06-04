@@ -863,16 +863,36 @@ textarea {
 .top-bar,
 .bottom-bar {
   width: min(1120px, calc(100% - 2rem));
+  max-height: 8rem;
   margin-inline: auto;
   display: grid;
   align-items: center;
   gap: 0.75rem;
+  opacity: 1;
+  overflow: visible;
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    padding 220ms ease,
+    transform 220ms ease;
+  will-change: max-height, opacity, transform;
 }
 
 .top-bar {
   grid-template-columns: minmax(8.5rem, auto) minmax(0, 1fr) auto auto;
   align-items: end;
   padding: 0.9rem 0 0.65rem;
+}
+
+.chrome-hidden .top-bar {
+  display: none;
+  max-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.75rem);
 }
 
 .top-bar .session-picker {
@@ -926,6 +946,39 @@ textarea {
 .bottom-bar {
   grid-template-columns: auto auto minmax(0, 1fr) minmax(28rem, auto);
   padding: 0.75rem 0 1rem;
+}
+
+.chrome-hidden .bottom-bar {
+  display: none;
+  max-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.75rem);
+}
+
+.chrome-visible .top-bar {
+  display: grid;
+  max-height: 8rem;
+  overflow: visible;
+  padding-top: 0.9rem;
+  padding-bottom: 0.65rem;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.chrome-visible .bottom-bar {
+  display: grid;
+  max-height: 8rem;
+  overflow: visible;
+  padding-top: 0.75rem;
+  padding-bottom: 1rem;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .settings-trigger {
@@ -1239,4 +1292,67 @@ textarea {
 .settings-trigger {
   width: 3.25rem;
   padding-inline: 0;
+}
+
+.app-shell {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.subtitle-stage {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.top-bar,
+.bottom-bar {
+  position: fixed;
+  left: 50%;
+  z-index: 10;
+  display: grid;
+  max-height: none;
+  overflow: visible;
+}
+
+.top-bar {
+  top: 0;
+}
+
+.bottom-bar {
+  bottom: 0;
+}
+
+.chrome-visible .top-bar,
+.chrome-visible .bottom-bar {
+  display: grid;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chrome-visible .top-bar {
+  transform: translate(-50%, 0);
+}
+
+.chrome-visible .bottom-bar {
+  transform: translate(-50%, 0);
+}
+
+.chrome-hidden .top-bar,
+.chrome-hidden .bottom-bar {
+  display: grid;
+  max-height: none;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chrome-hidden .top-bar {
+  padding-top: 0.9rem;
+  padding-bottom: 0.65rem;
+  transform: translate(-50%, -120%);
+}
+
+.chrome-hidden .bottom-bar {
+  padding-top: 0.75rem;
+  padding-bottom: 1rem;
+  transform: translate(-50%, 120%);
 }

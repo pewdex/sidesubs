@@ -91,6 +91,7 @@ const subtitlePositionValues: Record<SubtitlePositionOption, number> = {
   center: 50,
   bottom: 72,
 };
+const chromeIdleDelayMs = 2800;
 
 function Icon({ name }: { name: IconName }) {
   const commonProps = {
@@ -294,6 +295,7 @@ function App() {
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [prefersDarkTheme, setPrefersDarkTheme] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isChromeVisible, setIsChromeVisible] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<PlaybackSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
@@ -314,6 +316,7 @@ function App() {
     useState<SubtitleSearchState>('idle');
   const syncClockRef = useRef(createSyncClock());
   const hadConnectionErrorRef = useRef(false);
+  const chromeIdleTimerRef = useRef<number | null>(null);
 
   const subtitleDurationMs = useMemo(
     () => cues.reduce((duration, cue) => Math.max(duration, cue.endMs), 0),
@@ -351,6 +354,72 @@ function App() {
   useEffect(() => {
     syncClockRef.current.applyAnchor(selectedSession);
   }, [selectedSession]);
+
+  useEffect(() => {
+    function clearChromeIdleTimer(): void {
+      if (chromeIdleTimerRef.current !== null) {
+        window.clearTimeout(chromeIdleTimerRef.current);
+        chromeIdleTimerRef.current = null;
+      }
+    }
+
+    function hasFocusedChromeControl(): boolean {
+      const activeElement = document.activeElement;
+
+      return Boolean(
+        activeElement &&
+          activeElement.closest?.(
+            '.top-bar, .bottom-bar, .settings-panel, .subtitle-search-modal',
+          ),
+      );
+    }
+
+    function scheduleChromeHide(): void {
+      clearChromeIdleTimer();
+
+      if (isSettingsOpen || isSubtitleSearchOpen) {
+        setIsChromeVisible(true);
+        return;
+      }
+
+      chromeIdleTimerRef.current = window.setTimeout(() => {
+        if (!hasFocusedChromeControl()) {
+          setIsChromeVisible(false);
+        }
+      }, chromeIdleDelayMs);
+    }
+
+    function revealChrome(): void {
+      setIsChromeVisible(true);
+      scheduleChromeHide();
+    }
+
+    const activityEvents = [
+      'mousemove',
+      'mousedown',
+      'pointermove',
+      'pointerdown',
+      'touchstart',
+      'touchmove',
+      'wheel',
+      'keydown',
+      'focusin',
+    ] as const;
+
+    for (const eventName of activityEvents) {
+      window.addEventListener(eventName, revealChrome, { passive: true });
+    }
+
+    scheduleChromeHide();
+
+    return () => {
+      clearChromeIdleTimer();
+
+      for (const eventName of activityEvents) {
+        window.removeEventListener(eventName, revealChrome);
+      }
+    };
+  }, [isSettingsOpen, isSubtitleSearchOpen]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -622,6 +691,9 @@ function App() {
       className={[
         'app-shell',
         resolvedTheme === 'dark' ? 'theme-dark' : 'theme-dim',
+        isChromeVisible || isSettingsOpen || isSubtitleSearchOpen
+          ? 'chrome-visible'
+          : 'chrome-hidden',
       ]
         .filter(Boolean)
         .join(' ')}

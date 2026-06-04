@@ -4,8 +4,6 @@ Jellyfin sidecar subtitle app for showing synced subtitles on a second screen.
 
 The backend talks to Jellyfin, tracks active playback sessions in memory, and streams playback snapshots to browser clients with Server-Sent Events. The frontend renders uploaded or OpenSubtitles-downloaded SRT subtitles locally in the browser using the selected Jellyfin session's playback position.
 
-This was built with Codex in about 1 hour and is still an MVP for a personal homelab setup.
-
 ## Project Layout
 
 ```text
