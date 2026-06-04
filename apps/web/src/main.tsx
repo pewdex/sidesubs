@@ -52,7 +52,7 @@ type SubtitleSearchState = 'idle' | 'searching' | 'downloading';
 type SubtitleSizeOption = 'small' | 'medium' | 'large' | 'extra_large';
 type SubtitlePositionOption = 'top' | 'center' | 'bottom';
 type ThemeMode = 'dark' | 'light' | 'system';
-type IconName = 'alignCenter' | 'menu' | 'refresh' | 'search' | 'upload';
+type IconName = 'menu' | 'refresh' | 'reset' | 'search' | 'upload';
 
 const syncStatusLabels: Record<SyncStatus, string> = {
   adjusting: 'Adjusting...',
@@ -112,13 +112,11 @@ function Icon({ name }: { name: IconName }) {
     );
   }
 
-  if (name === 'alignCenter') {
+  if (name === 'reset') {
     return (
       <svg {...commonProps}>
-        <path d="M12 3v18" />
-        <path d="M7 7h10" />
-        <path d="M5 12h14" />
-        <path d="M8 17h8" />
+        <path d="M9 14 4 9l5-5" />
+        <path d="M4 9h10a6 6 0 1 1-4.2 10.3" />
       </svg>
     );
   }
@@ -736,7 +734,7 @@ function App() {
             type="button"
             onClick={resetSubtitleOffset}
           >
-            <Icon name="alignCenter" />
+            <Icon name="reset" />
           </button>
         </div>
         {error ? <p className="error-message">{error}</p> : null}
