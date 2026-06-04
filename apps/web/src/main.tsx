@@ -239,8 +239,7 @@ function App() {
       const nextCues = parseSrt(contents);
       setCues(nextCues);
       setFileName(file.name);
-      setSubtitleOffsetMs(0);
-      setOffsetInputValue('0.0');
+      setSubtitleOffset(0);
       setError(null);
     } catch (caughtError) {
       setError(
@@ -251,21 +250,21 @@ function App() {
     }
   }
 
+  function setSubtitleOffset(nextOffsetMs: number): void {
+    setSubtitleOffsetMs(nextOffsetMs);
+    setOffsetInputValue(formatOffsetInput(nextOffsetMs));
+  }
+
   function setAdjustedSubtitleTime(nextSubtitleTimeMs: number): void {
-    setSubtitleOffsetMs(nextSubtitleTimeMs - currentTimeMs);
+    setSubtitleOffset(nextSubtitleTimeMs - currentTimeMs);
   }
 
   function nudgeSubtitleOffset(deltaMs: number): void {
-    setSubtitleOffsetMs((offsetMs) => {
-      const nextOffsetMs = offsetMs + deltaMs;
-      setOffsetInputValue(formatOffsetInput(nextOffsetMs));
-      return nextOffsetMs;
-    });
+    setSubtitleOffset(subtitleOffsetMs + deltaMs);
   }
 
   function resetSubtitleOffset(): void {
-    setSubtitleOffsetMs(0);
-    setOffsetInputValue('0.0');
+    setSubtitleOffset(0);
   }
 
   function commitOffsetInput(value: string): void {
@@ -277,8 +276,7 @@ function App() {
     }
 
     const nextOffsetMs = Math.round(parsedSeconds * 1000);
-    setSubtitleOffsetMs(nextOffsetMs);
-    setOffsetInputValue(formatOffsetInput(nextOffsetMs));
+    setSubtitleOffset(nextOffsetMs);
   }
 
   function updateOffsetInput(value: string): void {
@@ -324,9 +322,9 @@ function App() {
           </select>
           <span className="field-note">
             {selectedSession
-              ? `${selectedSession.isPaused ? 'Paused' : 'Playing'} at ${formatTime(
-                  currentTimeMs,
-                )}`
+              ? selectedSession.isPaused
+                ? 'Paused'
+                : 'Playing'
               : connectionState === 'error'
                 ? 'Waiting for the backend event stream to reconnect.'
                 : 'Start playback in Jellyfin, then select the session here.'}
@@ -362,14 +360,14 @@ function App() {
         </div>
 
         <div className="offset-row">
-          <button type="button" onClick={() => nudgeSubtitleOffset(-100)}>
-            -0.1s
+          <button type="button" onClick={() => nudgeSubtitleOffset(-1000)}>
+            -1s
           </button>
           <button type="button" onClick={() => nudgeSubtitleOffset(-500)}>
             -0.5s
           </button>
-          <button type="button" onClick={() => nudgeSubtitleOffset(-1000)}>
-            -1s
+          <button type="button" onClick={() => nudgeSubtitleOffset(-100)}>
+            -0.1s
           </button>
           <label className="offset-input">
             <span>Offset</span>
