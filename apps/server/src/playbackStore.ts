@@ -4,6 +4,7 @@ export type PlaybackSession = {
   itemType?: string | null;
   name: string;
   playMethod?: string | null;
+  playbackRate: number;
   positionMs: number;
   productionYear?: number | null;
   runtimeMs?: number | null;
@@ -28,6 +29,7 @@ export type JellyfinSession = {
   PlayState?: {
     IsPaused?: boolean;
     PlayMethod?: string | null;
+    PlaybackRate?: number | null;
     PositionTicks?: number | null;
   } | null;
   UserId?: string | null;
@@ -58,9 +60,18 @@ function clampPosition(positionMs: number, runtimeMs?: number | null): number {
   return Math.min(Math.max(0, positionMs), runtimeMs);
 }
 
+function normalizePlaybackRate(rate?: number | null): number {
+  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) {
+    return 1;
+  }
+
+  return Math.min(Math.max(rate, 0.1), 8);
+}
+
 function toTrackedSession(
   session: JellyfinSession,
-  updatedAtMs: number
+  updatedAtMs: number,
+  previousSession?: TrackedPlaybackSession
 ): TrackedPlaybackSession | null {
   const item = session.NowPlayingItem;
 
@@ -68,19 +79,32 @@ function toTrackedSession(
     return null;
   }
 
+  const projectedPreviousPositionMs = previousSession
+    ? toPlaybackSession(previousSession, updatedAtMs).positionMs
+    : 0;
+  const playbackRate =
+    typeof session.PlayState?.PlaybackRate === "number"
+      ? normalizePlaybackRate(session.PlayState.PlaybackRate)
+      : previousSession?.playbackRate ?? 1;
+  const positionMs =
+    typeof session.PlayState?.PositionTicks === "number"
+      ? ticksToMs(session.PlayState.PositionTicks)
+      : projectedPreviousPositionMs;
+
   return {
     id: `${session.Id}:${item.Id}`,
     itemId: item.Id,
     itemType: item.Type ?? null,
     name: item.Name,
     playMethod: session.PlayState?.PlayMethod ?? null,
+    playbackRate,
     productionYear: item.ProductionYear ?? null,
     runtimeMs: item.RunTimeTicks ? ticksToMs(item.RunTimeTicks) : null,
     sessionId: session.Id,
     userId: session.UserId ?? null,
     userName: session.UserName ?? null,
-    isPaused: session.PlayState?.IsPaused ?? false,
-    lastKnownPositionMs: ticksToMs(session.PlayState?.PositionTicks),
+    isPaused: session.PlayState?.IsPaused ?? previousSession?.isPaused ?? false,
+    lastKnownPositionMs: positionMs,
     updatedAtMs
   };
 }
@@ -89,7 +113,9 @@ function toPlaybackSession(
   session: TrackedPlaybackSession,
   nowMs: number
 ): PlaybackSession {
-  const elapsedMs = session.isPaused ? 0 : nowMs - session.updatedAtMs;
+  const elapsedMs = session.isPaused
+    ? 0
+    : (nowMs - session.updatedAtMs) * session.playbackRate;
   const positionMs = clampPosition(
     session.lastKnownPositionMs + elapsedMs,
     session.runtimeMs
@@ -123,7 +149,17 @@ export function createPlaybackStore() {
       const nextSessions = new Map<string, TrackedPlaybackSession>();
 
       for (const jellyfinSession of jellyfinSessions) {
-        const trackedSession = toTrackedSession(jellyfinSession, updatedAtMs);
+        const previousSession =
+          jellyfinSession.Id && jellyfinSession.NowPlayingItem?.Id
+            ? sessions.get(
+                `${jellyfinSession.Id}:${jellyfinSession.NowPlayingItem.Id}`
+              )
+            : undefined;
+        const trackedSession = toTrackedSession(
+          jellyfinSession,
+          updatedAtMs,
+          previousSession
+        );
 
         if (trackedSession) {
           nextSessions.set(trackedSession.id, trackedSession);
