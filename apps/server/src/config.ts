@@ -14,6 +14,14 @@ export type AppConfig = {
     sessionPollIntervalMs: number;
     subscriptionIntervalMs: number;
   };
+  openSubtitles: {
+    apiKey: string | null;
+    baseUrl: string;
+    userAgent: string;
+    accessToken: string | null;
+    password: string | null;
+    username: string | null;
+  };
   server: {
     port: number;
     webDistDir: string;
@@ -40,6 +48,10 @@ function normalizeBaseUrl(rawBaseUrl: string): string {
   } catch {
     throw new Error(`JELLYFIN_BASE_URL is not a valid URL: ${rawBaseUrl}`);
   }
+}
+
+function optionalEnv(name: string): string | null {
+  return process.env[name]?.trim() || null;
 }
 
 function positiveNumberEnv(name: string, fallback: string): number {
@@ -73,6 +85,18 @@ export function loadConfig(): AppConfig {
         "JELLYFIN_SUBSCRIPTION_INTERVAL_MS",
         "1000"
       )
+    },
+    openSubtitles: {
+      accessToken: optionalEnv("OPENSUBTITLES_ACCESS_TOKEN"),
+      apiKey: optionalEnv("OPENSUBTITLES_API_KEY"),
+      baseUrl: normalizeBaseUrl(
+        process.env.OPENSUBTITLES_BASE_URL?.trim() ||
+          "https://api.opensubtitles.com/api/v1"
+      ),
+      password: optionalEnv("OPENSUBTITLES_PASSWORD"),
+      userAgent:
+        process.env.OPENSUBTITLES_USER_AGENT?.trim() || "sidesubs v0.1.0",
+      username: optionalEnv("OPENSUBTITLES_USERNAME")
     },
     server: {
       port: positiveNumberEnv("PORT", "3000"),
