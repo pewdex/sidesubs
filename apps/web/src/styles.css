@@ -1030,7 +1030,8 @@ textarea {
   width: min(420px, 100dvw);
   max-width: 100dvw;
   height: 100dvh;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: grid;
   align-content: start;
   gap: 1rem;
@@ -1041,7 +1042,12 @@ textarea {
   box-shadow: -1rem 0 3rem rgb(0 0 0 / 0.5);
 }
 
+.settings-panel > * {
+  min-width: 0;
+}
+
 .settings-group {
+  min-width: 0;
   display: grid;
   gap: 0.65rem;
 }
@@ -1056,13 +1062,15 @@ textarea {
 
 .segmented-control,
 .offset-settings {
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
   gap: 0.45rem;
 }
 
 .segmented-control button,
 .offset-settings button {
+  min-width: 0;
   min-height: 2.75rem;
   border: 1px solid #2f3a46;
   border-radius: 8px;
@@ -1092,11 +1100,23 @@ textarea {
 }
 
 .meta-readout div {
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   color: #a7b4c2;
   font-variant-numeric: tabular-nums;
+}
+
+.meta-readout span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-readout span:last-child {
+  flex: 0 0 auto;
 }
 
 .theme-dim .top-bar,
