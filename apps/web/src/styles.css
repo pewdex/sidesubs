@@ -949,7 +949,7 @@ textarea {
   grid-column: 4;
   justify-self: end;
   display: grid;
-  grid-template-columns: repeat(2, minmax(4rem, auto)) 6.25rem repeat(2, minmax(4rem, auto)) minmax(4.5rem, auto);
+  grid-template-columns: repeat(2, minmax(4rem, auto)) 6.25rem repeat(2, minmax(4rem, auto)) 3.25rem;
   gap: 0.45rem;
 }
 
@@ -973,6 +973,13 @@ textarea {
   background: #1b2633;
   padding: 0 0.75rem;
   cursor: pointer;
+}
+
+.offset-reset-button {
+  width: 3.25rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
 }
 
 .offset-value {
@@ -1218,7 +1225,7 @@ textarea {
 .bottom-offset-controls {
   grid-column: 4;
   justify-self: end;
-  grid-template-columns: repeat(2, minmax(4rem, auto)) 6.25rem repeat(2, minmax(4rem, auto)) minmax(4.5rem, auto);
+  grid-template-columns: repeat(2, minmax(4rem, auto)) 6.25rem repeat(2, minmax(4rem, auto)) 3.25rem;
 }
 
 .bottom-timing-readout {

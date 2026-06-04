@@ -52,7 +52,7 @@ type SubtitleSearchState = 'idle' | 'searching' | 'downloading';
 type SubtitleSizeOption = 'small' | 'medium' | 'large' | 'extra_large';
 type SubtitlePositionOption = 'top' | 'center' | 'bottom';
 type ThemeMode = 'dark' | 'light' | 'system';
-type IconName = 'menu' | 'refresh' | 'search' | 'upload';
+type IconName = 'alignCenter' | 'menu' | 'refresh' | 'search' | 'upload';
 
 const syncStatusLabels: Record<SyncStatus, string> = {
   adjusting: 'Adjusting...',
@@ -108,6 +108,17 @@ function Icon({ name }: { name: IconName }) {
         <path d="M4 6h16" />
         <path d="M4 12h16" />
         <path d="M4 18h16" />
+      </svg>
+    );
+  }
+
+  if (name === 'alignCenter') {
+    return (
+      <svg {...commonProps}>
+        <path d="M12 3v18" />
+        <path d="M7 7h10" />
+        <path d="M5 12h14" />
+        <path d="M8 17h8" />
       </svg>
     );
   }
@@ -719,8 +730,13 @@ function App() {
           <button type="button" onClick={() => nudgeSubtitleOffset(1000)}>
             +1s
           </button>
-          <button type="button" onClick={resetSubtitleOffset}>
-            Reset
+          <button
+            aria-label="Reset subtitle offset"
+            className="offset-reset-button"
+            type="button"
+            onClick={resetSubtitleOffset}
+          >
+            <Icon name="alignCenter" />
           </button>
         </div>
         {error ? <p className="error-message">{error}</p> : null}
