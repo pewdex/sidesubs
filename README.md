@@ -1,1 +1,93 @@
 # sidesubs
+
+Jellyfin sidecar subtitle app for showing synced subtitles on a second screen.
+
+The backend talks to Jellyfin, tracks active playback sessions in memory, and streams playback snapshots to browser clients with Server-Sent Events. The frontend renders uploaded SRT subtitles locally in the browser using the selected Jellyfin session's playback position.
+
+This was built with Codex in about 1 hour and is still an MVP for a personal homelab setup.
+
+## Project Layout
+
+```text
+apps/
+  server/  Express API, Jellyfin websocket/session tracking, SSE, static frontend
+  web/     React + Vite SRT subtitle display
+```
+
+The two apps are maintained as npm workspaces. Docker builds both and runs one container where the backend serves the built frontend.
+
+## Configuration
+
+Copy `.env.example` to `.env` and set:
+
+```sh
+JELLYFIN_BASE_URL=http://your-jellyfin-host:8096
+JELLYFIN_ACCESS_TOKEN=your-token
+```
+
+`JELLYFIN_ACCESS_TOKEN` can be a Jellyfin user access token or API key. User access tokens may expose richer session data for some WebSocket messages.
+
+Optional variables:
+
+```sh
+JELLYFIN_DEVICE_ID=sidesubs-docker
+JELLYFIN_DEVICE_NAME=sidesubs
+JELLYFIN_CLIENT_NAME=sidesubs
+JELLYFIN_CLIENT_VERSION=0.1.0
+JELLYFIN_SESSION_POLL_INTERVAL_MS=5000
+JELLYFIN_SUBSCRIPTION_INTERVAL_MS=1000
+LOG_LEVEL=info
+PORT=3000
+```
+
+Set `LOG_LEVEL=debug` only when you want extra websocket keepalive/subscription details.
+
+## Local Development
+
+Install all workspace dependencies from the repo root:
+
+```sh
+npm install
+```
+
+Run the Jellyfin WebSocket/static server:
+
+```sh
+npm run dev:server
+```
+
+Run the React + Vite frontend during UI development:
+
+```sh
+npm run dev:web
+```
+
+The frontend can load `.srt` subtitle files from the file picker, select an active Jellyfin playback session, and render subtitles against that session's playback position.
+
+The server exposes active Jellyfin playback sessions at:
+
+```sh
+GET /api/playback-sessions
+```
+
+The frontend receives live playback updates from:
+
+```sh
+GET /api/playback-events
+```
+
+`/api/playing-movies` is still available as a compatibility endpoint.
+
+Build both apps:
+
+```sh
+npm run build
+```
+
+## Docker
+
+```sh
+docker compose up --build
+```
+
+The container logs Jellyfin WebSocket events to stdout and serves the subtitle frontend at `http://localhost:3000`.
