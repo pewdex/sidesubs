@@ -21,11 +21,14 @@ type PlaybackSession = {
   id: string;
   itemId: string;
   itemType?: string | null;
+  episodeNumber?: number | null;
   name: string;
   playbackRate: number;
   positionMs: number;
   productionYear?: number | null;
   runtimeMs?: number | null;
+  seasonNumber?: number | null;
+  seriesName?: string | null;
   sessionId: string;
   updatedAt: string;
   userName?: string | null;
@@ -235,6 +238,43 @@ function formatMetadataValue(value: number | null): string | null {
   }
 
   return new Intl.NumberFormat().format(value);
+}
+
+function formatSeasonEpisode(value: number): string {
+  return value.toString().padStart(2, '0');
+}
+
+function formatEpisodeSearchQuery(session: PlaybackSession): string {
+  const seriesName = session.seriesName?.trim();
+  const yearSuffix = session.productionYear ? ` ${session.productionYear}` : '';
+
+  if (!seriesName) {
+    return `${session.name}${yearSuffix}`;
+  }
+
+  if (session.seasonNumber === null || session.seasonNumber === undefined) {
+    return session.episodeNumber === null || session.episodeNumber === undefined
+      ? `${seriesName}${yearSuffix}`
+      : `${seriesName}${yearSuffix} E${formatSeasonEpisode(session.episodeNumber)}`;
+  }
+
+  if (session.episodeNumber === null || session.episodeNumber === undefined) {
+    return `${seriesName}${yearSuffix} S${formatSeasonEpisode(session.seasonNumber)}`;
+  }
+
+  return `${seriesName}${yearSuffix} S${formatSeasonEpisode(
+    session.seasonNumber,
+  )}E${formatSeasonEpisode(session.episodeNumber)}`;
+}
+
+function formatSubtitleSearchQuery(session: PlaybackSession | null): string {
+  if (!session) {
+    return '';
+  }
+
+  return session.itemType === 'Episode'
+    ? formatEpisodeSearchQuery(session)
+    : `${session.name}${session.productionYear ? ` ${session.productionYear}` : ''}`;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -482,7 +522,7 @@ function App() {
   }
 
   function openSubtitleSearch(): void {
-    const initialQuery = selectedSession?.name || '';
+    const initialQuery = formatSubtitleSearchQuery(selectedSession);
 
     setSubtitleSearchQuery(initialQuery);
     setSubtitleSearchResults([]);
