@@ -49,7 +49,7 @@ const stopSessionPolling = startJellyfinSessionPolling(
 const playbackBroadcastInterval = setInterval(() => {
   sseBroker.broadcastSnapshot();
 }, 1000);
-const app = createExpressApp(config.server, playbackStore, sseBroker);
+const app = createExpressApp(config, playbackStore, sseBroker);
 const server = app.listen(config.server.port, "0.0.0.0", () => {
   logger.info(`Serving subtitle frontend from ${config.server.webDistDir}`);
   logger.info(`Frontend listening on http://0.0.0.0:${config.server.port}`);
