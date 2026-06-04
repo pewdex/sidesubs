@@ -2,12 +2,15 @@ export type PlaybackSession = {
   id: string;
   itemId: string;
   itemType?: string | null;
+  episodeNumber?: number | null;
   name: string;
   playMethod?: string | null;
   playbackRate: number;
   positionMs: number;
   productionYear?: number | null;
   runtimeMs?: number | null;
+  seasonNumber?: number | null;
+  seriesName?: string | null;
   sessionId: string;
   updatedAt: string;
   userId?: string | null;
@@ -17,9 +20,12 @@ export type PlaybackSession = {
 
 type JellyfinNowPlayingItem = {
   Id?: string;
+  IndexNumber?: number | null;
   Name?: string;
+  ParentIndexNumber?: number | null;
   ProductionYear?: number | null;
   RunTimeTicks?: number | null;
+  SeriesName?: string | null;
   Type?: string;
 };
 
@@ -93,6 +99,7 @@ function toTrackedSession(
 
   return {
     id: `${session.Id}:${item.Id}`,
+    episodeNumber: item.IndexNumber ?? null,
     itemId: item.Id,
     itemType: item.Type ?? null,
     name: item.Name,
@@ -100,6 +107,8 @@ function toTrackedSession(
     playbackRate,
     productionYear: item.ProductionYear ?? null,
     runtimeMs: item.RunTimeTicks ? ticksToMs(item.RunTimeTicks) : null,
+    seasonNumber: item.ParentIndexNumber ?? null,
+    seriesName: item.SeriesName ?? null,
     sessionId: session.Id,
     userId: session.UserId ?? null,
     userName: session.UserName ?? null,
