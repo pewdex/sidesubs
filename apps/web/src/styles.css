@@ -40,10 +40,82 @@ textarea {
 }
 
 .subtitle-stage {
+  position: relative;
   min-height: 68vh;
   display: grid;
   place-items: center;
   padding: clamp(1.5rem, 4vw, 5rem);
+}
+
+.sync-status-wrap {
+  position: absolute;
+  top: clamp(0.85rem, 2vw, 1.4rem);
+  right: clamp(0.85rem, 2vw, 1.4rem);
+  z-index: 2;
+}
+
+.sync-status-pill {
+  min-width: 8.5rem;
+  min-height: 2rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #263547;
+  border-radius: 999px;
+  color: #d9e3ef;
+  background: rgb(10 15 20 / 0.78);
+  font-size: 0.85rem;
+  font-weight: 650;
+  line-height: 1;
+  text-align: center;
+  box-shadow: 0 0.45rem 1.5rem rgb(0 0 0 / 0.34);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.sync-status-pill:hover,
+.sync-status-pill:focus-visible {
+  border-color: #8ea3b8;
+  outline: none;
+}
+
+.sync-status-popover {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  width: min(22rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #263547;
+  border-radius: 8px;
+  color: #d9e3ef;
+  background: rgb(10 15 20 / 0.96);
+  padding: 0.9rem;
+  text-align: left;
+  box-shadow: 0 1rem 2.75rem rgb(0 0 0 / 0.5);
+}
+
+.sync-status-popover strong {
+  color: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.sync-status-popover dl {
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.sync-status-popover dt {
+  color: #f8fafc;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.sync-status-popover dd {
+  margin: 0.18rem 0 0;
+  color: #a7b4c2;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .subtitle-text {
@@ -500,6 +572,22 @@ textarea {
 @media (max-width: 640px) {
   .subtitle-stage {
     min-height: 62vh;
+    padding-top: 4rem;
+  }
+
+  .sync-status-wrap {
+    left: 1rem;
+    right: auto;
+  }
+
+  .sync-status-pill {
+    min-width: 7.75rem;
+    font-size: 0.78rem;
+  }
+
+  .sync-status-popover {
+    left: 0;
+    right: auto;
   }
 
   .file-row,

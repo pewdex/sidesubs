@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { createSyncClock } from './syncClock';
+import { createSyncClock, type SyncStatus } from './syncClock';
 
 type SubtitleCue = {
   id: number;
@@ -22,6 +22,7 @@ type PlaybackSession = {
   itemId: string;
   itemType?: string | null;
   name: string;
+  playbackRate: number;
   positionMs: number;
   productionYear?: number | null;
   runtimeMs?: number | null;
@@ -48,6 +49,13 @@ type SubtitleSearchResult = {
 };
 
 type SubtitleSearchState = 'idle' | 'searching' | 'downloading';
+
+const syncStatusLabels: Record<SyncStatus, string> = {
+  adjusting: '🟡 Adjusting...',
+  disconnected: '🔴 Disconnected',
+  in_sync: '🟢 In Sync',
+  resynced: '🔵 Resynced',
+};
 
 const demoCues: SubtitleCue[] = [
   {
@@ -173,6 +181,8 @@ function App() {
   const [connectionState, setConnectionState] = useState<
     'connecting' | 'connected' | 'error'
   >('connecting');
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('disconnected');
+  const [isSyncStatusHelpOpen, setIsSyncStatusHelpOpen] = useState(false);
   const [isSubtitleSearchOpen, setIsSubtitleSearchOpen] = useState(false);
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState('');
   const [subtitleSearchLanguage, setSubtitleSearchLanguage] = useState('en');
@@ -185,6 +195,7 @@ function App() {
   const [subtitleSearchState, setSubtitleSearchState] =
     useState<SubtitleSearchState>('idle');
   const syncClockRef = useRef(createSyncClock());
+  const hadConnectionErrorRef = useRef(false);
 
   const subtitleDurationMs = useMemo(
     () => cues.reduce((duration, cue) => Math.max(duration, cue.endMs), 0),
@@ -226,7 +237,10 @@ function App() {
 
   useEffect(() => {
     let animationFrame = window.requestAnimationFrame(function tick() {
-      setCurrentTimeMs(syncClockRef.current.getPosition());
+      const nowMs = performance.now();
+
+      setCurrentTimeMs(syncClockRef.current.getPosition(nowMs));
+      setSyncStatus(syncClockRef.current.getStatus(nowMs));
       animationFrame = window.requestAnimationFrame(tick);
     });
 
@@ -237,10 +251,17 @@ function App() {
     const eventSource = new EventSource('/api/playback-events');
 
     eventSource.addEventListener('open', () => {
+      if (hadConnectionErrorRef.current) {
+        syncClockRef.current.markResynced();
+        hadConnectionErrorRef.current = false;
+      }
+
       setConnectionState('connected');
     });
 
     eventSource.addEventListener('error', () => {
+      hadConnectionErrorRef.current = true;
+      syncClockRef.current.markDisconnected();
       setConnectionState('error');
     });
 
@@ -448,6 +469,44 @@ function App() {
   return (
     <main className="app-shell">
       <section className="subtitle-stage" aria-label="Subtitle preview">
+        <div className="sync-status-wrap">
+          <button
+            aria-expanded={isSyncStatusHelpOpen}
+            className="sync-status-pill"
+            type="button"
+            onClick={() => setIsSyncStatusHelpOpen((isOpen) => !isOpen)}
+          >
+            <span role="status" aria-live="polite">
+              {syncStatusLabels[syncStatus]}
+            </span>
+          </button>
+          {isSyncStatusHelpOpen ? (
+            <div className="sync-status-popover" role="dialog">
+              <strong>Sync Status</strong>
+              <dl>
+                <div>
+                  <dt>🟢 In Sync</dt>
+                  <dd>Normal playback. No correction currently being applied.</dd>
+                </div>
+                <div>
+                  <dt>🟡 Adjusting...</dt>
+                  <dd>A small sync correction is being applied while drift is smoothed.</dd>
+                </div>
+                <div>
+                  <dt>🔵 Resynced</dt>
+                  <dd>
+                    Shown briefly after a seek, pause/resume, reconnect, session
+                    change, or large drift correction.
+                  </dd>
+                </div>
+                <div>
+                  <dt>🔴 Disconnected</dt>
+                  <dd>No playback updates received recently, or the event stream is disconnected.</dd>
+                </div>
+              </dl>
+            </div>
+          ) : null}
+        </div>
         <div className="subtitle-text" role="status" aria-live="polite">
           {subtitleText}
         </div>
@@ -480,7 +539,9 @@ function App() {
             {selectedSession
               ? selectedSession.isPaused
                 ? 'Paused'
-                : 'Playing'
+                : selectedSession.playbackRate !== 1
+                  ? `Playing at ${selectedSession.playbackRate}x`
+                  : 'Playing'
               : connectionState === 'error'
                 ? 'Waiting for the backend event stream to reconnect.'
                 : 'Start playback in Jellyfin, then select the session here.'}
