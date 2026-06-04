@@ -49,12 +49,16 @@ type SubtitleSearchResult = {
 };
 
 type SubtitleSearchState = 'idle' | 'searching' | 'downloading';
+type SubtitleSizeOption = 'small' | 'medium' | 'large' | 'extra_large';
+type SubtitlePositionOption = 'top' | 'center' | 'bottom';
+type ThemeMode = 'dark' | 'light' | 'system';
+type IconName = 'menu' | 'refresh' | 'reset' | 'search' | 'upload';
 
 const syncStatusLabels: Record<SyncStatus, string> = {
-  adjusting: '🟡 Adjusting...',
-  disconnected: '🔴 Disconnected',
-  in_sync: '🟢 In Sync',
-  resynced: '🔵 Resynced',
+  adjusting: 'Adjusting...',
+  disconnected: 'Disconnected',
+  in_sync: 'In Sync',
+  resynced: 'Resynced',
 };
 
 const demoCues: SubtitleCue[] = [
@@ -71,6 +75,78 @@ const demoCues: SubtitleCue[] = [
     text: 'Select a Jellyfin session to sync playback.',
   },
 ];
+
+const subtitleSizeScales: Record<SubtitleSizeOption, number> = {
+  small: 0.82,
+  medium: 1,
+  large: 1.22,
+  extra_large: 1.48,
+};
+
+const subtitlePositionValues: Record<SubtitlePositionOption, number> = {
+  top: 28,
+  center: 50,
+  bottom: 72,
+};
+
+function Icon({ name }: { name: IconName }) {
+  const commonProps = {
+    'aria-hidden': true,
+    fill: 'none',
+    height: 20,
+    stroke: 'currentColor',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    strokeWidth: 2,
+    viewBox: '0 0 24 24',
+    width: 20,
+  };
+
+  if (name === 'menu') {
+    return (
+      <svg {...commonProps}>
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
+      </svg>
+    );
+  }
+
+  if (name === 'reset') {
+    return (
+      <svg {...commonProps}>
+        <path d="M9 14 4 9l5-5" />
+        <path d="M4 9h10a6 6 0 1 1-4.2 10.3" />
+      </svg>
+    );
+  }
+
+  if (name === 'refresh') {
+    return (
+      <svg {...commonProps}>
+        <path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4" />
+        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+      </svg>
+    );
+  }
+
+  if (name === 'upload') {
+    return (
+      <svg {...commonProps}>
+        <path d="M12 16V4" />
+        <path d="m7 9 5-5 5 5" />
+        <path d="M5 20h14" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16 16 4 4" />
+    </svg>
+  );
+}
 
 function parseTimestamp(timestamp: string): number {
   const match = timestamp
@@ -153,10 +229,6 @@ function formatOffset(ms: number): string {
   return `${sign}${(ms / 1000).toFixed(1)}s`;
 }
 
-function formatOffsetInput(ms: number): string {
-  return (ms / 1000).toFixed(1);
-}
-
 function formatMetadataValue(value: number | null): string | null {
   if (value === null) {
     return null;
@@ -175,6 +247,13 @@ function App() {
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [subtitleOffsetMs, setSubtitleOffsetMs] = useState(0);
   const [offsetInputValue, setOffsetInputValue] = useState('0.0');
+  const [subtitleSize, setSubtitleSize] =
+    useState<SubtitleSizeOption>('medium');
+  const [subtitlePosition, setSubtitlePosition] =
+    useState<SubtitlePositionOption>('center');
+  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
+  const [prefersDarkTheme, setPrefersDarkTheme] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<PlaybackSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
@@ -182,7 +261,6 @@ function App() {
     'connecting' | 'connected' | 'error'
   >('connecting');
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('disconnected');
-  const [isSyncStatusHelpOpen, setIsSyncStatusHelpOpen] = useState(false);
   const [isSubtitleSearchOpen, setIsSubtitleSearchOpen] = useState(false);
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState('');
   const [subtitleSearchLanguage, setSubtitleSearchLanguage] = useState('en');
@@ -216,9 +294,6 @@ function App() {
     0,
     timelineDurationMs,
   );
-  const movieProgressPercent =
-    timelineDurationMs > 0 ? (currentTimeMs / timelineDurationMs) * 100 : 0;
-
   const activeCue = useMemo(
     () =>
       cues.find(
@@ -230,10 +305,26 @@ function App() {
   );
 
   const subtitleText = activeCue?.text || '';
+  const resolvedTheme =
+    themeMode === 'system' ? (prefersDarkTheme ? 'dark' : 'light') : themeMode;
 
   useEffect(() => {
     syncClockRef.current.applyAnchor(selectedSession);
   }, [selectedSession]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    setPrefersDarkTheme(mediaQuery.matches);
+
+    function handleThemeChange(event: MediaQueryListEvent): void {
+      setPrefersDarkTheme(event.matches);
+    }
+
+    mediaQuery.addEventListener('change', handleThemeChange);
+
+    return () => mediaQuery.removeEventListener('change', handleThemeChange);
+  }, []);
 
   useEffect(() => {
     let animationFrame = window.requestAnimationFrame(function tick() {
@@ -281,6 +372,31 @@ function App() {
 
     return () => eventSource.close();
   }, []);
+
+  async function refreshSessions(): Promise<void> {
+    setConnectionState('connecting');
+
+    try {
+      const response = await fetch('/api/playback-sessions');
+      const snapshot = (await response.json()) as PlaybackSnapshot;
+
+      if (!response.ok) {
+        throw new Error('Could not refresh Jellyfin sessions.');
+      }
+
+      setConnectionState('connected');
+      setSessions(snapshot.sessions);
+      setSelectedSessionId((currentSessionId) => {
+        if (snapshot.sessions.some((session) => session.id === currentSessionId)) {
+          return currentSessionId;
+        }
+
+        return snapshot.sessions[0]?.id ?? '';
+      });
+    } catch {
+      setConnectionState('error');
+    }
+  }
 
   function loadSubtitleContents(contents: string, name: string): void {
     try {
@@ -429,11 +545,7 @@ function App() {
 
   function setSubtitleOffset(nextOffsetMs: number): void {
     setSubtitleOffsetMs(nextOffsetMs);
-    setOffsetInputValue(formatOffsetInput(nextOffsetMs));
-  }
-
-  function setAdjustedSubtitleTime(nextSubtitleTimeMs: number): void {
-    setSubtitleOffset(nextSubtitleTimeMs - currentTimeMs);
+    setOffsetInputValue((nextOffsetMs / 1000).toFixed(1));
   }
 
   function nudgeSubtitleOffset(deltaMs: number): void {
@@ -448,12 +560,11 @@ function App() {
     const parsedSeconds = Number(value);
 
     if (!Number.isFinite(parsedSeconds)) {
-      setOffsetInputValue(formatOffsetInput(subtitleOffsetMs));
+      setOffsetInputValue((subtitleOffsetMs / 1000).toFixed(1));
       return;
     }
 
-    const nextOffsetMs = Math.round(parsedSeconds * 1000);
-    setSubtitleOffset(nextOffsetMs);
+    setSubtitleOffset(Math.round(parsedSeconds * 1000));
   }
 
   function updateOffsetInput(value: string): void {
@@ -467,55 +578,47 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <section className="subtitle-stage" aria-label="Subtitle preview">
+    <main
+      className={[
+        'app-shell',
+        resolvedTheme === 'dark' ? 'theme-dark' : 'theme-dim',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <header className="top-bar">
         <div className="sync-status-wrap">
-          <button
-            aria-expanded={isSyncStatusHelpOpen}
-            className="sync-status-pill"
-            type="button"
-            onClick={() => setIsSyncStatusHelpOpen((isOpen) => !isOpen)}
-          >
-            <span role="status" aria-live="polite">
-              {syncStatusLabels[syncStatus]}
-            </span>
-          </button>
-          {isSyncStatusHelpOpen ? (
-            <div className="sync-status-popover" role="dialog">
-              <strong>Sync Status</strong>
-              <dl>
-                <div>
-                  <dt>🟢 In Sync</dt>
-                  <dd>Normal playback. No correction currently being applied.</dd>
-                </div>
-                <div>
-                  <dt>🟡 Adjusting...</dt>
-                  <dd>A small sync correction is being applied while drift is smoothed.</dd>
-                </div>
-                <div>
-                  <dt>🔵 Resynced</dt>
-                  <dd>
-                    Shown briefly after a seek, pause/resume, reconnect, session
-                    change, or large drift correction.
-                  </dd>
-                </div>
-                <div>
-                  <dt>🔴 Disconnected</dt>
-                  <dd>No playback updates received recently, or the event stream is disconnected.</dd>
-                </div>
-              </dl>
-            </div>
-          ) : null}
+          <div className="sync-status-pill" role="status" aria-live="polite">
+            {syncStatusLabels[syncStatus]}
+          </div>
+          <div className="sync-status-popover" role="tooltip">
+            <strong>Sync Status</strong>
+            <dl>
+              <div>
+                <dt>In Sync</dt>
+                <dd>Normal playback. No correction currently being applied.</dd>
+              </div>
+              <div>
+                <dt>Adjusting...</dt>
+                <dd>A small sync correction is being applied while drift is smoothed.</dd>
+              </div>
+              <div>
+                <dt>Resynced</dt>
+                <dd>
+                  Shown briefly after a seek, pause/resume, reconnect, session
+                  change, or large drift correction.
+                </dd>
+              </div>
+              <div>
+                <dt>Disconnected</dt>
+                <dd>No playback updates received recently, or the event stream is disconnected.</dd>
+              </div>
+            </dl>
+          </div>
         </div>
-        <div className="subtitle-text" role="status" aria-live="polite">
-          {subtitleText}
-        </div>
-      </section>
-
-      <aside className="control-panel" aria-label="Subtitle controls">
         <label className="session-picker">
-          <span>Jellyfin session</span>
           <select
+            aria-label="Jellyfin session"
             value={selectedSessionId}
             onChange={(event) => setSelectedSessionId(event.target.value)}
           >
@@ -535,69 +638,76 @@ function App() {
               </option>
             ))}
           </select>
-          <span className="field-note">
-            {selectedSession
-              ? selectedSession.isPaused
-                ? 'Paused'
-                : selectedSession.playbackRate !== 1
-                  ? `Playing at ${selectedSession.playbackRate}x`
-                  : 'Playing'
-              : connectionState === 'error'
-                ? 'Waiting for the backend event stream to reconnect.'
-                : 'Start playback in Jellyfin, then select the session here.'}
+        </label>
+        <button
+          className="refresh-button"
+          type="button"
+          onClick={() => {
+            void refreshSessions();
+          }}
+        >
+          <Icon name="refresh" />
+        </button>
+        <button
+          aria-label="Open subtitle settings"
+          className="settings-trigger"
+          type="button"
+          onClick={() => setIsSettingsOpen(true)}
+        >
+          <Icon name="menu" />
+        </button>
+      </header>
+
+      <section
+        className="subtitle-stage"
+        aria-label="Subtitle preview"
+        style={
+          {
+            '--subtitle-position': `${subtitlePositionValues[subtitlePosition]}%`,
+            '--subtitle-scale': subtitleSizeScales[subtitleSize],
+          } as CSSProperties
+        }
+      >
+        <div className="subtitle-text" role="status" aria-live="polite">
+          {subtitleText}
+        </div>
+      </section>
+
+      <footer className="bottom-bar" aria-label="Subtitle actions">
+        <button
+          aria-label="Search subtitles"
+          className="icon-action subtitle-search-trigger"
+          type="button"
+          onClick={openSubtitleSearch}
+        >
+          <Icon name="search" />
+        </button>
+        <label className="file-picker icon-file-picker">
+          <input
+            accept=".srt,application/x-subrip,text/plain"
+            type="file"
+            onChange={(event) => {
+              void handleFileChange(event.target.files?.[0] ?? null);
+            }}
+          />
+          <span aria-label="Upload SRT" role="button">
+            <Icon name="upload" />
           </span>
         </label>
-
-        <div className="file-row">
-          <div className="file-actions">
-            <label className="file-picker">
-              <input
-                accept=".srt,application/x-subrip,text/plain"
-                type="file"
-                onChange={(event) => {
-                  void handleFileChange(event.target.files?.[0] ?? null);
-                }}
-              />
-              <span>Choose SRT</span>
-            </label>
-            <button
-              className="subtitle-search-trigger"
-              type="button"
-              onClick={openSubtitleSearch}
-            >
-              Search Subtitles
-            </button>
-          </div>
-
-          <div className="file-meta">
-            <strong>{fileName}</strong>
-            <span>{cues.length} cues</span>
-          </div>
+        <div className="bottom-timing-readout" aria-label="Playback timing">
+          <span>Movie {formatTime(currentTimeMs)}</span>
+          <span>Subs {formatTime(adjustedSubtitleTimeMs)}</span>
         </div>
-
-        <div className="sync-row">
-          <output aria-live="off">
-            Movie {formatTime(currentTimeMs)}
-          </output>
-          <output aria-live="off">
-            Subs {formatTime(adjustedSubtitleTimeMs)}
-          </output>
-          <span>{connectionState === 'connected' ? 'Live sync' : 'Reconnecting'}</span>
-        </div>
-
-        <div className="offset-row">
+        <div className="bottom-offset-controls" aria-label="Timing offset">
           <button type="button" onClick={() => nudgeSubtitleOffset(-1000)}>
             -1s
           </button>
           <button type="button" onClick={() => nudgeSubtitleOffset(-500)}>
             -0.5s
           </button>
-          <button type="button" onClick={() => nudgeSubtitleOffset(-100)}>
-            -0.1s
-          </button>
-          <label className="offset-input">
-            <span>Offset</span>
+          <label className="offset-value">
             <input
+              aria-label="Subtitle offset seconds"
               inputMode="decimal"
               step="0.1"
               type="number"
@@ -612,45 +722,113 @@ function App() {
             />
             <span>s</span>
           </label>
-          <button type="button" onClick={() => nudgeSubtitleOffset(100)}>
-            +0.1s
-          </button>
           <button type="button" onClick={() => nudgeSubtitleOffset(500)}>
             +0.5s
           </button>
           <button type="button" onClick={() => nudgeSubtitleOffset(1000)}>
             +1s
           </button>
-          <button type="button" onClick={resetSubtitleOffset}>
-            Reset
+          <button
+            aria-label="Reset subtitle offset"
+            className="offset-reset-button"
+            type="button"
+            onClick={resetSubtitleOffset}
+          >
+            <Icon name="reset" />
           </button>
         </div>
-
-        <label className="timeline">
-          <span>Subtitle timing</span>
-          <div
-            className="timeline-control"
-            style={
-              {
-                '--movie-progress': `${movieProgressPercent}%`,
-              } as CSSProperties
-            }
-          >
-            <input
-              max={timelineDurationMs}
-              min={0}
-              step={100}
-              type="range"
-              value={adjustedSubtitleTimeMs}
-              onChange={(event) =>
-                setAdjustedSubtitleTime(Number(event.target.value))
-              }
-            />
-          </div>
-        </label>
-
         {error ? <p className="error-message">{error}</p> : null}
-      </aside>
+      </footer>
+
+      {isSettingsOpen ? (
+        <div
+          className="settings-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsSettingsOpen(false);
+            }
+          }}
+        >
+          <aside
+            aria-label="Subtitle settings"
+            aria-modal="true"
+            className="settings-panel"
+            role="dialog"
+          >
+            <div className="modal-header">
+              <h2>Subtitle Settings</h2>
+              <button
+                aria-label="Close subtitle settings"
+                className="modal-close-button"
+                type="button"
+                onClick={() => setIsSettingsOpen(false)}
+              >
+                X
+              </button>
+            </div>
+
+            <section className="settings-group">
+              <h3>Size</h3>
+              <div className="segmented-control">
+                {(['small', 'medium', 'large', 'extra_large'] as const).map(
+                  (size) => (
+                    <button
+                      className={subtitleSize === size ? 'selected' : ''}
+                      key={size}
+                      type="button"
+                      onClick={() => setSubtitleSize(size)}
+                    >
+                      {size === 'extra_large' ? 'XL' : size[0].toUpperCase() + size.slice(1)}
+                    </button>
+                  ),
+                )}
+              </div>
+            </section>
+
+            <section className="settings-group">
+              <h3>Position</h3>
+              <div className="segmented-control">
+                {(['top', 'center', 'bottom'] as const).map((position) => (
+                  <button
+                    className={subtitlePosition === position ? 'selected' : ''}
+                    key={position}
+                    type="button"
+                    onClick={() => setSubtitlePosition(position)}
+                  >
+                    {position[0].toUpperCase() + position.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="settings-group">
+              <h3>Theme</h3>
+              <div className="segmented-control">
+                {(['dark', 'light', 'system'] as const).map((theme) => (
+                  <button
+                    className={themeMode === theme ? 'selected' : ''}
+                    key={theme}
+                    type="button"
+                    onClick={() => setThemeMode(theme)}
+                  >
+                    {theme[0].toUpperCase() + theme.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="settings-group meta-readout">
+              <h3>Subtitle File</h3>
+              <div>
+                <span>{fileName}</span>
+                <span>{cues.length} cues</span>
+              </div>
+            </section>
+
+          </aside>
+        </div>
+      ) : null}
 
       {isSubtitleSearchOpen ? (
         <div
@@ -699,7 +877,7 @@ function App() {
                 />
               </label>
               <label className="subtitle-search-field subtitle-language-field">
-                <span>Language</span>
+                <span>Language Code</span>
                 <input
                   className="subtitle-language-input"
                   inputMode="text"
@@ -715,12 +893,18 @@ function App() {
                 />
               </label>
               <button
+                aria-label={
+                  subtitleSearchState === 'searching'
+                    ? 'Searching subtitles'
+                    : 'Search subtitles'
+                }
+                className="subtitle-search-submit"
                 disabled={
                   subtitleSearchState !== 'idle' || !subtitleSearchQuery.trim()
                 }
                 type="submit"
               >
-                {subtitleSearchState === 'searching' ? 'Searching...' : 'Search'}
+                <Icon name="search" />
               </button>
             </form>
 
