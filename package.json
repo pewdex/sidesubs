@@ -1,0 +1,22 @@
+{
+  "name": "sidesubs",
+  "version": "0.1.0",
+  "description": "Jellyfin subtitle companion with a WebSocket server and React frontend",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:server": "npm run build --workspace @sidesubs/server",
+    "build:web": "npm run build --workspace @sidesubs/web",
+    "dev:server": "npm run dev --workspace @sidesubs/server",
+    "dev:web": "npm run dev --workspace @sidesubs/web",
+    "start": "npm run start --workspace @sidesubs/server"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

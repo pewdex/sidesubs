@@ -1,0 +1,438 @@
+import {
+  StrictMode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
+import { createRoot } from 'react-dom/client';
+import './styles.css';
+import { createSyncClock } from './syncClock';
+
+type SubtitleCue = {
+  id: number;
+  startMs: number;
+  endMs: number;
+  text: string;
+};
+
+type PlaybackSession = {
+  id: string;
+  itemId: string;
+  itemType?: string | null;
+  name: string;
+  positionMs: number;
+  productionYear?: number | null;
+  runtimeMs?: number | null;
+  sessionId: string;
+  updatedAt: string;
+  userName?: string | null;
+  isPaused: boolean;
+};
+
+type PlaybackSnapshot = {
+  lastUpdatedAt: string | null;
+  sessions: PlaybackSession[];
+};
+
+const demoCues: SubtitleCue[] = [
+  {
+    id: 1,
+    startMs: 0,
+    endMs: 2600,
+    text: 'Upload an SRT file to begin.',
+  },
+  {
+    id: 2,
+    startMs: 3200,
+    endMs: 7000,
+    text: 'Select a Jellyfin session to sync playback.',
+  },
+];
+
+function parseTimestamp(timestamp: string): number {
+  const match = timestamp
+    .trim()
+    .match(/^(\d{1,2}):(\d{2}):(\d{2})(?:[,.](\d{1,3}))?$/);
+
+  if (!match) {
+    throw new Error(`Invalid SRT timestamp: ${timestamp}`);
+  }
+
+  const [, hours, minutes, seconds, milliseconds = '0'] = match;
+  const paddedMilliseconds = milliseconds.padEnd(3, '0').slice(0, 3);
+
+  return (
+    Number(hours) * 3_600_000 +
+    Number(minutes) * 60_000 +
+    Number(seconds) * 1000 +
+    Number(paddedMilliseconds)
+  );
+}
+
+function parseSrt(contents: string): SubtitleCue[] {
+  const blocks = contents
+    .replace(/\r/g, '')
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const cues = blocks.flatMap((block, blockIndex) => {
+    const lines = block.split('\n').map((line) => line.trimEnd());
+    const timingLineIndex = lines.findIndex((line) => line.includes('-->'));
+
+    if (timingLineIndex === -1) {
+      return [];
+    }
+
+    const [start, rawEnd] = lines[timingLineIndex]
+      .split('-->')
+      .map((part) => part.trim());
+    const end = rawEnd.split(/\s+/)[0];
+    const text = lines
+      .slice(timingLineIndex + 1)
+      .join('\n')
+      .replace(/<\/?[^>]+>/g, '')
+      .trim();
+
+    if (!text) {
+      return [];
+    }
+
+    return [
+      {
+        id: blockIndex + 1,
+        startMs: parseTimestamp(start),
+        endMs: parseTimestamp(end),
+        text,
+      },
+    ];
+  });
+
+  if (cues.length === 0) {
+    throw new Error('No playable subtitle cues were found in this SRT file.');
+  }
+
+  return cues.sort((a, b) => a.startMs - b.startMs);
+}
+
+function formatTime(ms: number): string {
+  const safeMs = Math.max(0, Math.floor(ms));
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const tenths = Math.floor((safeMs % 1000) / 100);
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
+}
+
+function formatOffset(ms: number): string {
+  const sign = ms > 0 ? '+' : '';
+  return `${sign}${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatOffsetInput(ms: number): string {
+  return (ms / 1000).toFixed(1);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function App() {
+  const [cues, setCues] = useState<SubtitleCue[]>(demoCues);
+  const [fileName, setFileName] = useState<string>('Demo subtitles');
+  const [currentTimeMs, setCurrentTimeMs] = useState(0);
+  const [subtitleOffsetMs, setSubtitleOffsetMs] = useState(0);
+  const [offsetInputValue, setOffsetInputValue] = useState('0.0');
+  const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<PlaybackSession[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [connectionState, setConnectionState] = useState<
+    'connecting' | 'connected' | 'error'
+  >('connecting');
+  const syncClockRef = useRef(createSyncClock());
+
+  const subtitleDurationMs = useMemo(
+    () => cues.reduce((duration, cue) => Math.max(duration, cue.endMs), 0),
+    [cues],
+  );
+
+  const selectedSession = useMemo(
+    () => sessions.find((session) => session.id === selectedSessionId) ?? null,
+    [sessions, selectedSessionId],
+  );
+
+  const timelineDurationMs = Math.max(
+    selectedSession?.runtimeMs || 0,
+    subtitleDurationMs,
+  );
+  const adjustedSubtitleTimeMs = clamp(
+    currentTimeMs + subtitleOffsetMs,
+    0,
+    timelineDurationMs,
+  );
+  const movieProgressPercent =
+    timelineDurationMs > 0 ? (currentTimeMs / timelineDurationMs) * 100 : 0;
+
+  const activeCue = useMemo(
+    () =>
+      cues.find(
+        (cue) =>
+          adjustedSubtitleTimeMs >= cue.startMs &&
+          adjustedSubtitleTimeMs <= cue.endMs,
+      ),
+    [adjustedSubtitleTimeMs, cues],
+  );
+
+  const subtitleText = activeCue?.text || '';
+
+  useEffect(() => {
+    syncClockRef.current.applyAnchor(selectedSession);
+  }, [selectedSession]);
+
+  useEffect(() => {
+    let animationFrame = window.requestAnimationFrame(function tick() {
+      setCurrentTimeMs(syncClockRef.current.getPosition());
+      animationFrame = window.requestAnimationFrame(tick);
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, []);
+
+  useEffect(() => {
+    const eventSource = new EventSource('/api/playback-events');
+
+    eventSource.addEventListener('open', () => {
+      setConnectionState('connected');
+    });
+
+    eventSource.addEventListener('error', () => {
+      setConnectionState('error');
+    });
+
+    eventSource.addEventListener('playback-snapshot', (event) => {
+      const snapshot = JSON.parse((event as MessageEvent).data) as PlaybackSnapshot;
+
+      setConnectionState('connected');
+      setSessions(snapshot.sessions);
+      setSelectedSessionId((currentSessionId) => {
+        if (snapshot.sessions.some((session) => session.id === currentSessionId)) {
+          return currentSessionId;
+        }
+
+        return snapshot.sessions[0]?.id ?? '';
+      });
+    });
+
+    return () => eventSource.close();
+  }, []);
+
+  async function handleFileChange(file: File | null): Promise<void> {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const contents = await file.text();
+      const nextCues = parseSrt(contents);
+      setCues(nextCues);
+      setFileName(file.name);
+      setSubtitleOffsetMs(0);
+      setOffsetInputValue('0.0');
+      setError(null);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Could not parse that SRT file.',
+      );
+    }
+  }
+
+  function setAdjustedSubtitleTime(nextSubtitleTimeMs: number): void {
+    setSubtitleOffsetMs(nextSubtitleTimeMs - currentTimeMs);
+  }
+
+  function nudgeSubtitleOffset(deltaMs: number): void {
+    setSubtitleOffsetMs((offsetMs) => {
+      const nextOffsetMs = offsetMs + deltaMs;
+      setOffsetInputValue(formatOffsetInput(nextOffsetMs));
+      return nextOffsetMs;
+    });
+  }
+
+  function resetSubtitleOffset(): void {
+    setSubtitleOffsetMs(0);
+    setOffsetInputValue('0.0');
+  }
+
+  function commitOffsetInput(value: string): void {
+    const parsedSeconds = Number(value);
+
+    if (!Number.isFinite(parsedSeconds)) {
+      setOffsetInputValue(formatOffsetInput(subtitleOffsetMs));
+      return;
+    }
+
+    const nextOffsetMs = Math.round(parsedSeconds * 1000);
+    setSubtitleOffsetMs(nextOffsetMs);
+    setOffsetInputValue(formatOffsetInput(nextOffsetMs));
+  }
+
+  function updateOffsetInput(value: string): void {
+    setOffsetInputValue(value);
+
+    const parsedSeconds = Number(value);
+
+    if (Number.isFinite(parsedSeconds)) {
+      setSubtitleOffsetMs(Math.round(parsedSeconds * 1000));
+    }
+  }
+
+  return (
+    <main className="app-shell">
+      <section className="subtitle-stage" aria-label="Subtitle preview">
+        <div className="subtitle-text" role="status" aria-live="polite">
+          {subtitleText}
+        </div>
+      </section>
+
+      <aside className="control-panel" aria-label="Subtitle controls">
+        <label className="session-picker">
+          <span>Jellyfin session</span>
+          <select
+            value={selectedSessionId}
+            onChange={(event) => setSelectedSessionId(event.target.value)}
+          >
+            {sessions.length === 0 ? (
+              <option value="">
+                {connectionState === 'connecting'
+                  ? 'Connecting to Jellyfin sessions...'
+                  : 'No active playback sessions'}
+              </option>
+            ) : null}
+
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.name}
+                {session.productionYear ? ` (${session.productionYear})` : ''}
+                {session.userName ? ` - ${session.userName}` : ''}
+              </option>
+            ))}
+          </select>
+          <span className="field-note">
+            {selectedSession
+              ? `${selectedSession.isPaused ? 'Paused' : 'Playing'} at ${formatTime(
+                  currentTimeMs,
+                )}`
+              : connectionState === 'error'
+                ? 'Waiting for the backend event stream to reconnect.'
+                : 'Start playback in Jellyfin, then select the session here.'}
+          </span>
+        </label>
+
+        <div className="file-row">
+          <label className="file-picker">
+            <input
+              accept=".srt,application/x-subrip,text/plain"
+              type="file"
+              onChange={(event) => {
+                void handleFileChange(event.target.files?.[0] ?? null);
+              }}
+            />
+            <span>Choose SRT</span>
+          </label>
+
+          <div className="file-meta">
+            <strong>{fileName}</strong>
+            <span>{cues.length} cues</span>
+          </div>
+        </div>
+
+        <div className="sync-row">
+          <output aria-live="off">
+            Movie {formatTime(currentTimeMs)}
+          </output>
+          <output aria-live="off">
+            Subs {formatTime(adjustedSubtitleTimeMs)}
+          </output>
+          <span>{connectionState === 'connected' ? 'Live sync' : 'Reconnecting'}</span>
+        </div>
+
+        <div className="offset-row">
+          <button type="button" onClick={() => nudgeSubtitleOffset(-100)}>
+            -0.1s
+          </button>
+          <button type="button" onClick={() => nudgeSubtitleOffset(-500)}>
+            -0.5s
+          </button>
+          <button type="button" onClick={() => nudgeSubtitleOffset(-1000)}>
+            -1s
+          </button>
+          <label className="offset-input">
+            <span>Offset</span>
+            <input
+              inputMode="decimal"
+              step="0.1"
+              type="number"
+              value={offsetInputValue}
+              onBlur={(event) => commitOffsetInput(event.target.value)}
+              onChange={(event) => updateOffsetInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+            <span>s</span>
+          </label>
+          <button type="button" onClick={() => nudgeSubtitleOffset(100)}>
+            +0.1s
+          </button>
+          <button type="button" onClick={() => nudgeSubtitleOffset(500)}>
+            +0.5s
+          </button>
+          <button type="button" onClick={() => nudgeSubtitleOffset(1000)}>
+            +1s
+          </button>
+          <button type="button" onClick={resetSubtitleOffset}>
+            Reset
+          </button>
+        </div>
+
+        <label className="timeline">
+          <span>Subtitle timing</span>
+          <div
+            className="timeline-control"
+            style={
+              {
+                '--movie-progress': `${movieProgressPercent}%`,
+              } as CSSProperties
+            }
+          >
+            <input
+              max={timelineDurationMs}
+              min={0}
+              step={100}
+              type="range"
+              value={adjustedSubtitleTimeMs}
+              onChange={(event) =>
+                setAdjustedSubtitleTime(Number(event.target.value))
+              }
+            />
+          </div>
+        </label>
+
+        {error ? <p className="error-message">{error}</p> : null}
+      </aside>
+    </main>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
