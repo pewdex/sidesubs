@@ -101,8 +101,53 @@ npm run build
 
 ## Docker
 
+Build and run locally:
+
 ```sh
 docker compose up --build
 ```
 
 The container logs high-level playback/session activity and serves the subtitle frontend at `http://localhost:3000`.
+
+## Published Image
+
+Docker images are published to GitHub Container Registry:
+
+```sh
+docker pull ghcr.io/pewdex/sidesubs:latest
+```
+
+Run the published image directly:
+
+```sh
+docker run --rm \
+  --env-file .env \
+  -p 3000:3000 \
+  ghcr.io/pewdex/sidesubs:latest
+```
+
+Example `docker-compose.yml` using the published image:
+
+```yaml
+services:
+  sidesubs:
+    image: ghcr.io/pewdex/sidesubs:latest
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+```
+
+## Release Flow
+
+GitHub Actions builds the root `Dockerfile` and publishes to GHCR on every push to `main`.
+The `main` image is tagged as:
+
+```text
+ghcr.io/pewdex/sidesubs:latest
+```
+
+When a Git tag or GitHub release is created, the workflow also publishes versioned tags from the tag name. For example, `v1.2.3` publishes `1.2.3`, `1.2`, `1`, and the tag reference.
+
+The workflow uses the built-in `GITHUB_TOKEN` with `packages: write` permission, so no personal access token is required.
