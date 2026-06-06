@@ -2,21 +2,45 @@
 
 Jellyfin sidecar subtitle app for showing synced subtitles on a second screen.
 
-The backend talks to Jellyfin, tracks active playback sessions in memory, and streams playback snapshots to browser clients with Server-Sent Events. The frontend renders uploaded or OpenSubtitles-downloaded SRT subtitles locally in the browser using the selected Jellyfin session's playback position.
+This is an MVP for personal homelab use: open the app on an iPad or another browser, load subtitles, select the Jellyfin session currently playing, and let the browser render subtitles in sync with playback.
 
-## Project Layout
+## Features
 
-```text
-apps/
-  server/  Express API, Jellyfin websocket/session tracking, SSE, static frontend
-  web/     React + Vite SRT subtitle display
+- Display subtitles on a second screen while watching Jellyfin.
+- Upload local `.srt` files.
+- Search and download subtitles from OpenSubtitles.
+- Select an active Jellyfin playback session.
+- Keep subtitle timing synced across pause, resume, seek, stop, and session changes.
+- Adjust subtitle timing offset from the UI.
+- Render subtitles locally in the browser.
+- Run as a single Docker container.
+
+## Quick Start
+
+Copy `.env.example` to `.env` and set the required Jellyfin values:
+
+```sh
+JELLYFIN_BASE_URL=http://your-jellyfin-host:8096
+JELLYFIN_ACCESS_TOKEN=your-token
 ```
 
-The two apps are maintained as npm workspaces. Docker builds both and runs one container where the backend serves the built frontend.
+Start the app:
+
+```sh
+docker compose up --build
+```
+
+Open the web app:
+
+```text
+http://localhost:3000
+```
+
+The container logs high-level playback/session activity and serves the frontend from the backend.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set:
+Required Jellyfin variables:
 
 ```sh
 JELLYFIN_BASE_URL=http://your-jellyfin-host:8096
@@ -25,7 +49,7 @@ JELLYFIN_ACCESS_TOKEN=your-token
 
 `JELLYFIN_ACCESS_TOKEN` can be a Jellyfin user access token or API key. User access tokens may expose richer session data for some WebSocket messages.
 
-Optional variables:
+Optional Jellyfin/server variables:
 
 ```sh
 JELLYFIN_DEVICE_ID=sidesubs-docker
@@ -36,6 +60,11 @@ JELLYFIN_SESSION_POLL_INTERVAL_MS=5000
 JELLYFIN_SUBSCRIPTION_INTERVAL_MS=1000
 LOG_LEVEL=info
 PORT=3000
+```
+
+OpenSubtitles variables:
+
+```sh
 OPENSUBTITLES_API_KEY=your-opensubtitles-api-key
 OPENSUBTITLES_ACCESS_TOKEN=optional-bearer-token
 OPENSUBTITLES_USERNAME=optional-opensubtitles-username
@@ -44,70 +73,46 @@ OPENSUBTITLES_BASE_URL=https://api.opensubtitles.com/api/v1
 OPENSUBTITLES_USER_AGENT=sidesubs v0.1.0
 ```
 
-Set `LOG_LEVEL=debug` only when you want extra websocket keepalive/subscription details.
 `OPENSUBTITLES_API_KEY` is required only for the Search Subtitles modal. If it is missing, the app still starts and manual SRT upload still works.
+
 For downloads that require login, set either `OPENSUBTITLES_ACCESS_TOKEN` or `OPENSUBTITLES_USERNAME` and `OPENSUBTITLES_PASSWORD`; login happens in memory on the backend.
 
-## Local Development
+Set `LOG_LEVEL=debug` only when you want extra websocket keepalive/subscription details.
 
-Install all workspace dependencies from the repo root:
+## Using The App
 
-```sh
-npm install
-```
-
-Run the Jellyfin WebSocket/static server:
-
-```sh
-npm run dev:server
-```
-
-Run the React + Vite frontend during UI development:
-
-```sh
-npm run dev:web
-```
+1. Open `http://localhost:3000` on the second-screen device.
+2. Start playback in Jellyfin.
+3. Select the active Jellyfin session from the top dropdown.
+4. Upload an SRT file or use Search Subtitles.
+5. Adjust timing offset if the subtitles are early or late.
+6. Use the settings menu for subtitle size, position, and theme.
 
 The frontend can load `.srt` subtitle files from the file picker, search OpenSubtitles, select an active Jellyfin playback session, and render subtitles against that session's playback position.
+
 Search results show OpenSubtitles poster images when available. The browser loads those through the backend cover proxy, so the frontend still does not talk directly to OpenSubtitles.
 
-The server exposes active Jellyfin playback sessions at:
+## Subtitle Languages
 
-```sh
-GET /api/playback-sessions
+The subtitle search language dropdown is configured in `subtitleLanguages.json` at the repository root.
+Each entry needs an OpenSubtitles language `code` and a display `name`:
+
+```json
+[
+  {
+    "code": "en",
+    "name": "English"
+  }
+]
 ```
 
-The frontend receives live playback updates from:
+Add an entry there if OpenSubtitles supports a language that is missing from the UI. Remove an entry to hide it from the dropdown.
 
-```sh
-GET /api/playback-events
-```
+The language field in the search modal is still editable, so users can type a valid OpenSubtitles language code manually even if it is not listed in the dropdown.
 
-`/api/playing-movies` is still available as a compatibility endpoint.
+When using the included Docker Compose file, this JSON file is mounted into the container and read by the backend at runtime. After editing the file, refresh the browser page to reload the dropdown.
 
-Subtitle search endpoints:
-
-```sh
-GET /api/subtitles/search?query=Movie%20Title&language=en
-POST /api/subtitles/download
-GET /api/subtitles/cover?url=https%3A%2F%2F...
-```
-
-Build both apps:
-
-```sh
-npm run build
-```
-
-## Docker
-
-Build and run locally:
-
-```sh
-docker compose up --build
-```
-
-The container logs high-level playback/session activity and serves the subtitle frontend at `http://localhost:3000`.
+If you run the image without that bind mount, the app uses the copy baked into the Docker image.
 
 ## Published Image
 
@@ -136,8 +141,86 @@ services:
       - .env
     ports:
       - "3000:3000"
+    volumes:
+      - ./subtitleLanguages.json:/app/config/subtitleLanguages.json:ro
     restart: unless-stopped
 ```
+
+## Local Development
+
+Install all workspace dependencies from the repo root:
+
+```sh
+npm install
+```
+
+Run the Jellyfin WebSocket/static server:
+
+```sh
+npm run dev:server
+```
+
+Run the React + Vite frontend during UI development:
+
+```sh
+npm run dev:web
+```
+
+Build both apps:
+
+```sh
+npm run build
+```
+
+## Technical Overview
+
+The backend talks to Jellyfin, tracks active playback sessions in memory, and streams playback snapshots to browser clients with Server-Sent Events.
+
+The frontend renders uploaded or OpenSubtitles-downloaded SRT subtitles locally in the browser using the selected Jellyfin session's playback position. Subtitle rendering happens in the browser; subtitle text is not streamed by the server during playback.
+
+The frontend does not communicate directly with Jellyfin or OpenSubtitles. Jellyfin session discovery, OpenSubtitles search/download, and cover proxying all go through the backend.
+
+Playback state is kept in memory. There is no database, Redis, or background job system.
+
+## API Reference
+
+Active Jellyfin playback sessions:
+
+```sh
+GET /api/playback-sessions
+```
+
+Live playback updates for browser clients:
+
+```sh
+GET /api/playback-events
+```
+
+Subtitle language dropdown config:
+
+```sh
+GET /api/subtitle-languages
+```
+
+Subtitle search endpoints:
+
+```sh
+GET /api/subtitles/search?query=Movie%20Title&language=en
+POST /api/subtitles/download
+GET /api/subtitles/cover?url=https%3A%2F%2F...
+```
+
+`/api/playing-movies` is still available as a compatibility endpoint.
+
+## Project Layout
+
+```text
+apps/
+  server/  Express API, Jellyfin websocket/session tracking, SSE, static frontend
+  web/     React + Vite SRT subtitle display
+```
+
+The two apps are maintained as npm workspaces. Docker builds both and runs one container where the backend serves the built frontend.
 
 ## Release Flow
 

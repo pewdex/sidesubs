@@ -24,6 +24,7 @@ export type AppConfig = {
   };
   server: {
     port: number;
+    subtitleLanguagesPath: string;
     webDistDir: string;
   };
 };
@@ -100,6 +101,10 @@ export function loadConfig(): AppConfig {
     },
     server: {
       port: positiveNumberEnv("PORT", "3000"),
+      subtitleLanguagesPath: path.resolve(
+        process.env.SUBTITLE_LANGUAGES_PATH?.trim() ||
+          path.resolve(moduleDir, "../../../subtitleLanguages.json")
+      ),
       webDistDir: path.resolve(
         process.env.WEB_DIST_DIR?.trim() || defaultWebDistDir
       )
