@@ -1,4 +1,5 @@
 import express from "express";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { AppConfig } from "./config.js";
@@ -43,6 +44,22 @@ export function createExpressApp(
   app.get("/api/playback-events", (request, response) => {
     request.socket.setTimeout(0);
     sseBroker.connect(response);
+  });
+
+  app.get("/api/subtitle-languages", async (_request, response) => {
+    try {
+      const languages = await readFile(config.server.subtitleLanguagesPath, "utf8");
+
+      response
+        .setHeader("Cache-Control", "no-store")
+        .type("application/json")
+        .send(languages);
+    } catch {
+      response.status(500).json({
+        code: "subtitle_languages_error",
+        message: "Could not load subtitle language options."
+      });
+    }
   });
 
   app.get("/api/subtitles/search", async (request, response) => {

@@ -5,4 +5,6 @@ services:
       - .env
     ports:
       - "3000:3000"
+    volumes:
+      - ./subtitleLanguages.json:/app/config/subtitleLanguages.json:ro
     restart: unless-stopped

@@ -9,6 +9,7 @@ import {
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { createSyncClock, type SyncStatus } from './syncClock';
+import fallbackSubtitleLanguagesConfig from '../../../subtitleLanguages.json';
 
 type SubtitleCue = {
   id: number;
@@ -56,6 +57,42 @@ type SubtitleSizeOption = 'small' | 'medium' | 'large' | 'extra_large';
 type SubtitlePositionOption = 'top' | 'center' | 'bottom';
 type ThemeMode = 'dark' | 'light' | 'system';
 type IconName = 'menu' | 'refresh' | 'reset' | 'search' | 'upload';
+type SubtitleLanguageOption = {
+  code: string;
+  name: string;
+};
+
+function normalizeSubtitleLanguages(
+  rawLanguages: unknown,
+): SubtitleLanguageOption[] {
+  if (!Array.isArray(rawLanguages)) {
+    return [];
+  }
+
+  return rawLanguages.flatMap((entry) => {
+    if (
+      entry &&
+      typeof entry === 'object' &&
+      'code' in entry &&
+      'name' in entry &&
+      typeof entry.code === 'string' &&
+      typeof entry.name === 'string'
+    ) {
+      const code = entry.code.trim().toLowerCase();
+      const name = entry.name.trim();
+
+      if (code && name) {
+        return [{ code, name }];
+      }
+    }
+
+    return [];
+  });
+}
+
+const fallbackSubtitleLanguages = normalizeSubtitleLanguages(
+  fallbackSubtitleLanguagesConfig,
+);
 
 const syncStatusLabels: Record<SyncStatus, string> = {
   adjusting: 'Adjusting...',
@@ -69,13 +106,13 @@ const demoCues: SubtitleCue[] = [
     id: 1,
     startMs: 0,
     endMs: 2600,
-    text: 'Upload an SRT file to begin.',
+    text: 'Search subtitles or upload an SRT to begin.',
   },
   {
     id: 2,
     startMs: 3200,
     endMs: 7000,
-    text: 'Select a Jellyfin session to sync playback.',
+    text: 'Pick the Jellyfin session playing on your TV.',
   },
 ];
 
@@ -306,6 +343,11 @@ function App() {
   const [isSubtitleSearchOpen, setIsSubtitleSearchOpen] = useState(false);
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState('');
   const [subtitleSearchLanguage, setSubtitleSearchLanguage] = useState('en');
+  const [subtitleLanguageFilter, setSubtitleLanguageFilter] = useState('');
+  const [subtitleLanguages, setSubtitleLanguages] = useState(
+    fallbackSubtitleLanguages,
+  );
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [subtitleSearchResults, setSubtitleSearchResults] = useState<
     SubtitleSearchResult[]
   >([]);
@@ -327,6 +369,17 @@ function App() {
     () => sessions.find((session) => session.id === selectedSessionId) ?? null,
     [sessions, selectedSessionId],
   );
+  const filteredSubtitleLanguages = useMemo(() => {
+    const query = subtitleLanguageFilter.trim().toLowerCase();
+
+    if (!query) {
+      return subtitleLanguages;
+    }
+
+    return subtitleLanguages.filter((language) =>
+      language.code.includes(query) || language.name.toLowerCase().includes(query),
+    );
+  }, [subtitleLanguageFilter, subtitleLanguages]);
 
   const timelineDurationMs = Math.max(
     selectedSession?.runtimeMs || 0,
@@ -350,6 +403,34 @@ function App() {
   const subtitleText = activeCue?.text || '';
   const resolvedTheme =
     themeMode === 'system' ? (prefersDarkTheme ? 'dark' : 'light') : themeMode;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRuntimeSubtitleLanguages(): Promise<void> {
+      try {
+        const response = await fetch('/api/subtitle-languages');
+
+        if (!response.ok) {
+          return;
+        }
+
+        const languages = normalizeSubtitleLanguages(await response.json());
+
+        if (isMounted && languages.length > 0) {
+          setSubtitleLanguages(languages);
+        }
+      } catch {
+        // Keep the bundled fallback list if the runtime config is unavailable.
+      }
+    }
+
+    void loadRuntimeSubtitleLanguages();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     syncClockRef.current.applyAnchor(selectedSession);
@@ -610,6 +691,7 @@ function App() {
       return;
     }
 
+    setIsLanguageMenuOpen(false);
     setIsSubtitleSearchOpen(false);
   }
 
@@ -982,7 +1064,7 @@ function App() {
                 <input
                   autoFocus
                   className="subtitle-query-input"
-                  placeholder="Closer"
+                  placeholder="Back to the Future"
                   type="search"
                   value={subtitleSearchQuery}
                   onChange={(event) => setSubtitleSearchQuery(event.target.value)}
@@ -990,19 +1072,71 @@ function App() {
               </label>
               <label className="subtitle-search-field subtitle-language-field">
                 <span>Language Code</span>
-                <input
-                  className="subtitle-language-input"
-                  inputMode="text"
-                  maxLength={8}
-                  placeholder="en"
-                  type="text"
-                  value={subtitleSearchLanguage}
-                  onChange={(event) =>
-                    setSubtitleSearchLanguage(
-                      event.target.value.replace(/\s/g, '').toLowerCase(),
-                    )
-                  }
-                />
+                <div className="subtitle-language-combobox">
+                  <input
+                    aria-autocomplete="list"
+                    aria-controls="subtitle-language-menu"
+                    aria-expanded={isLanguageMenuOpen}
+                    className="subtitle-language-input"
+                    inputMode="text"
+                    maxLength={8}
+                    placeholder="en"
+                    role="combobox"
+                    type="text"
+                    value={subtitleSearchLanguage}
+                    onBlur={() => {
+                      window.setTimeout(() => setIsLanguageMenuOpen(false), 120);
+                    }}
+                    onChange={(event) => {
+                      const nextLanguage = event.target.value
+                        .replace(/\s/g, '')
+                        .toLowerCase();
+
+                      setSubtitleSearchLanguage(nextLanguage);
+                      setSubtitleLanguageFilter(nextLanguage);
+                      setIsLanguageMenuOpen(true);
+                    }}
+                    onClick={() => {
+                      setSubtitleLanguageFilter('');
+                      setIsLanguageMenuOpen(true);
+                    }}
+                    onFocus={() => {
+                      setSubtitleLanguageFilter('');
+                      setIsLanguageMenuOpen(true);
+                    }}
+                  />
+                  {isLanguageMenuOpen ? (
+                    <div
+                      className="subtitle-language-menu"
+                      id="subtitle-language-menu"
+                      role="listbox"
+                    >
+                      {filteredSubtitleLanguages.length === 0 ? (
+                        <div className="subtitle-language-empty">
+                          No matching languages
+                        </div>
+                      ) : (
+                        filteredSubtitleLanguages.map((language) => (
+                          <button
+                            className="subtitle-language-option"
+                            key={language.code}
+                            role="option"
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setSubtitleSearchLanguage(language.code);
+                              setSubtitleLanguageFilter('');
+                              setIsLanguageMenuOpen(false);
+                            }}
+                          >
+                            <span>{language.name}</span>
+                            <strong>{language.code}</strong>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </label>
               <button
                 aria-label={

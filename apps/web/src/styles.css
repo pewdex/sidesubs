@@ -17,13 +17,15 @@
 html,
 body,
 #root {
+  width: 100%;
   min-height: 100%;
   margin: 0;
+  overflow-x: hidden;
 }
 
 body {
   background: #000;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 button,
@@ -43,12 +45,14 @@ textarea {
 }
 
 .app-shell {
-  min-width: 54rem;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   display: grid;
   grid-template-rows: 1fr auto;
   color: #f8fafc;
   background: #000;
+  overflow-x: hidden;
 }
 
 .app-shell.theme-dim {
@@ -539,6 +543,9 @@ textarea {
   position: fixed;
   z-index: 20;
   inset: 0;
+  width: 100dvw;
+  height: 100dvh;
+  overflow: hidden;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -547,7 +554,9 @@ textarea {
 
 .subtitle-search-modal {
   width: min(720px, 100%);
+  max-width: calc(100dvw - 2rem);
   max-height: min(760px, calc(100vh - 2rem));
+  overflow-x: hidden;
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 1rem;
@@ -566,7 +575,7 @@ textarea {
 
 .subtitle-search-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 8rem 2.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(9.5rem, 11rem) 3.25rem;
   align-items: end;
   gap: 0.75rem;
 }
@@ -601,10 +610,13 @@ textarea {
 }
 
 .subtitle-search-submit {
-  width: 2.75rem;
+  width: 3.25rem;
+  min-width: 3.25rem;
+  height: 2.75rem;
   display: inline-grid;
   place-items: center;
   padding: 0;
+  line-height: 1;
 }
 
 .modal-close-button:hover,
@@ -646,10 +658,76 @@ textarea {
   width: 100%;
 }
 
+.subtitle-language-combobox {
+  position: relative;
+}
+
 .subtitle-language-input {
   width: 100%;
-  text-align: center;
   text-transform: lowercase;
+}
+
+.subtitle-language-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  left: auto;
+  width: min(18rem, calc(100dvw - 2rem));
+  max-height: 15rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid #2f3a46;
+  border-radius: 8px;
+  color: #d9e3ef;
+  background: #0a0f14;
+  padding: 0.35rem;
+  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.48);
+}
+
+.subtitle-search-form .subtitle-language-option {
+  min-height: 2.35rem;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: 6px;
+  color: #d9e3ef;
+  background: transparent;
+  padding: 0 0.6rem;
+  text-align: left;
+}
+
+.subtitle-language-option span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle-language-option:hover,
+.subtitle-language-option:focus-visible {
+  color: #f8fafc;
+  background: #172233;
+  outline: none;
+}
+
+.subtitle-language-option strong {
+  flex: 0 0 auto;
+  color: #8ea3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.subtitle-language-empty {
+  color: #7f8d9d;
+  padding: 0.65rem;
 }
 
 .subtitle-search-form input:focus {
@@ -862,7 +940,8 @@ textarea {
 
 .top-bar,
 .bottom-bar {
-  width: min(1120px, calc(100% - 2rem));
+  width: min(1120px, calc(100dvw - 2rem));
+  min-width: 0;
   max-height: 8rem;
   margin-inline: auto;
   display: grid;
@@ -1002,7 +1081,7 @@ textarea {
   grid-column: 4;
   justify-self: end;
   display: grid;
-  grid-template-columns: repeat(2, minmax(4rem, auto)) 6.25rem repeat(2, minmax(4rem, auto)) 3.25rem;
+  grid-template-columns: repeat(2, minmax(3.75rem, auto)) 6.25rem repeat(2, minmax(3.75rem, auto)) 3.25rem;
   gap: 0.45rem;
 }
 
@@ -1272,13 +1351,13 @@ textarea {
 }
 
 .bottom-bar {
-  grid-template-columns: auto auto minmax(0, 1fr) minmax(28rem, auto);
+  grid-template-columns: auto auto minmax(8rem, 1fr) auto;
 }
 
 .bottom-offset-controls {
   grid-column: 4;
   justify-self: end;
-  grid-template-columns: repeat(2, minmax(4rem, auto)) 6.25rem repeat(2, minmax(4rem, auto)) 3.25rem;
+  grid-template-columns: repeat(2, minmax(3.75rem, auto)) 6.25rem repeat(2, minmax(3.75rem, auto)) 3.25rem;
 }
 
 .bottom-timing-readout {
@@ -1355,4 +1434,10 @@ textarea {
   padding-top: 0.75rem;
   padding-bottom: 1rem;
   transform: translate(-50%, 120%);
+}
+
+.subtitle-search-form .subtitle-search-submit {
+  width: 3.25rem;
+  min-width: 3.25rem;
+  padding: 0;
 }

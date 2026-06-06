@@ -1,0 +1,26 @@
+[
+  {
+    "code": "en",
+    "name": "English"
+  },
+  {
+    "code": "es",
+    "name": "Spanish"
+  },
+  {
+    "code": "fr",
+    "name": "French"
+  },
+  {
+    "code": "zh-cn",
+    "name": "Chinese (Simplified)"
+  },
+  {
+    "code": "zh-tw",
+    "name": "Chinese (Traditional)"
+  },
+  {
+    "code": "ze",
+    "name": "Chinese bilingual"
+  }
+]
