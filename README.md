@@ -122,6 +122,8 @@ Docker images are published to GitHub Container Registry:
 docker pull ghcr.io/pewdex/sidesubs:latest
 ```
 
+Published images support `linux/amd64` and `linux/arm64`, so the same `latest` tag should work on typical Intel/AMD servers and Apple Silicon Macs.
+
 Run the published image directly:
 
 ```sh
