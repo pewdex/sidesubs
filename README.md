@@ -15,6 +15,20 @@ This is an MVP for personal homelab use: open the app on an iPad or another brow
 - Render subtitles locally in the browser.
 - Run as a single Docker container.
 
+## Screenshots
+
+Desktop subtitle view:
+
+![Desktop subtitle view](docs/screenshots/desktop-subtitle-view.jpg)
+
+OpenSubtitles search modal:
+
+![OpenSubtitles search modal](docs/screenshots/search-subtitles-modal.jpg)
+
+Mobile subtitle view:
+
+![Mobile subtitle view](docs/screenshots/mobile-subtitle-view.jpg)
+
 ## Quick Start
 
 Copy `.env.example` to `.env` and set the required Jellyfin values:
