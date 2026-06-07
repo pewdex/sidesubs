@@ -19,15 +19,15 @@ This is an MVP for personal homelab use: open the app on an iPad or another brow
 
 Desktop subtitle view:
 
-![Desktop subtitle view](docs/screenshots/desktop-subtitle-view.jpg)
+![Desktop subtitle view](docs/screenshots/desktop-subtitle-view-current.jpg)
 
 OpenSubtitles search modal:
 
-![OpenSubtitles search modal](docs/screenshots/search-subtitles-modal.jpg)
+![OpenSubtitles search modal](docs/screenshots/search-subtitles-modal-current.jpg)
 
 Mobile subtitle view:
 
-![Mobile subtitle view](docs/screenshots/mobile-subtitle-view.jpg)
+![Mobile subtitle view](docs/screenshots/mobile-subtitle-view-current.jpg)
 
 ## Quick Start
 
