@@ -889,7 +889,7 @@ function App() {
           </span>
         </label>
         <div className="bottom-timing-readout" aria-label="Playback timing">
-          <span>Movie {formatTime(currentTimeMs)}</span>
+          <span>Media {formatTime(currentTimeMs)}</span>
           <span>Subs {formatTime(adjustedSubtitleTimeMs)}</span>
         </div>
         <div className="bottom-offset-controls" aria-label="Timing offset">
