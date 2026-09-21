@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createPlaybackStore,
   type JellyfinSession,
-} from './playbackStore.js';
+} from '../src/playbackStore.js';
 
 function jellyfinSession(
   overrides: Partial<JellyfinSession> & {

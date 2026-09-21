@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSyncClock, type PlaybackAnchor } from './syncClock';
+import { createSyncClock, type PlaybackAnchor } from '../src/syncClock';
 
 function anchor(
   overrides: Partial<PlaybackAnchor> & Pick<PlaybackAnchor, 'positionMs'> = {

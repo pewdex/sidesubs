@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSrt, parseTimestamp } from './parseSrt';
+import { parseSrt, parseTimestamp } from '../src/parseSrt';
 
 describe('parseTimestamp', () => {
   it('parses comma and dot millisecond separators', () => {
